@@ -1,0 +1,16 @@
+[package]
+name = "city_cycling"
+version = "0.1.0"
+authors = ["Sebastien Kovacs <sebastien.kovacs.dev@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rocket = "0.4.2"
+rocket_contrib = "0.4.2"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+redis = "0.10.0"
+r2d2 = "*"
+r2d2_redis = "*"
