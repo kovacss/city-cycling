@@ -31,9 +31,9 @@ impl Store {
         self.pool.get().unwrap()
     }
 
-    pub fn store_bike_points(&self, new_bike_points: Vec<BikePoint>) {
+    pub fn store_bike_points(&self, new_bike_points: &Vec<BikePoint>) {
         let conn = self.get_connection();
-        let value = serde_json::to_string(&new_bike_points).unwrap();
+        let value = serde_json::to_string(new_bike_points).unwrap();
         let _: () = conn.set(REDIS_KEY, value).unwrap();
         println!("BikePoints store ...");
     }
