@@ -1,46 +1,36 @@
-extern crate redis;
-
-extern crate r2d2_redis;
-
-use crate::redis_wrapper;
-use r2d2::PooledConnection;
-use r2d2_redis::redis::Commands;
-use r2d2_redis::{r2d2, RedisConnectionManager};
+use bson;
 
 use crate::bike_point::BikePoint;
+use mongodb::db::ThreadedDatabase;
 
-const REDIS_KEY: &'static str = "UK_LONDON";
+const LONDON_COLLECTION: &str = "london";
 
-const REDIS_ADDRESS: &'static str = "redis://127.0.0.1/";
-
-// Pool initiation.
-// Call it starting an app and store a pul as a rocket managed state.
-pub fn pool() -> r2d2::Pool<RedisConnectionManager> {
-    let manager = RedisConnectionManager::new(REDIS_ADDRESS).unwrap();
-    let pool = r2d2::Pool::builder().build(manager).unwrap();
-    pool
+pub fn store_bike_points(db: &mongodb::db::Database, new_bike_points: &Vec<BikePoint>) {
+    let value = bson::to_bson(&new_bike_points)
+        .expect("Failed to serialize bike_points to bson.")
+        .as_array()
+        .expect("Failed to get document.")
+        .clone();
+    let vec = value
+        .iter()
+        .map(|d| d.as_document().unwrap().clone())
+        .collect();
+    db.collection(LONDON_COLLECTION).insert_many(vec, None);
+    println!("BikePoints store ...");
 }
 
-// Where T is RedisConnectionManager
-pub struct Store {
-    pub pool: r2d2::Pool<RedisConnectionManager>,
-}
+pub fn get_bike_points(db: &mongodb::db::Database) -> Vec<BikePoint> {
+    println!("Fetching From BikePoints from store ...");
 
-impl Store {
-    fn get_connection(&self) -> PooledConnection<RedisConnectionManager> {
-        self.pool.get().unwrap()
+    let mut bike_points: Vec<BikePoint> = vec![];
+    let cursor = db.collection(LONDON_COLLECTION).find(None, None).unwrap();
+    for result in cursor {
+        if let Ok(item) = result {
+            let t = bson::from_bson(bson::Bson::Document(item)).unwrap();
+            bike_points.push(t);
+        } else {
+            println!("item not found");
+        }
     }
-
-    pub fn store_bike_points(&self, new_bike_points: &Vec<BikePoint>) {
-        let conn = self.get_connection();
-        let value = serde_json::to_string(new_bike_points).unwrap();
-        let _: () = conn.set(REDIS_KEY, value).unwrap();
-        println!("BikePoints store ...");
-    }
-
-    pub fn get_bike_points(_connection: redis_wrapper::DbConn) -> Vec<BikePoint> {
-        println!("Fetching From BikePoints from store ...");
-        let t: String = _connection.get(REDIS_KEY).unwrap();
-        serde_json::from_str(&t).unwrap()
-    }
+    bike_points
 }

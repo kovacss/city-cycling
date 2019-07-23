@@ -3,12 +3,14 @@ use rocket_contrib::json::Json;
 use std::thread;
 
 mod bike_point;
-mod loader;
-mod redis_wrapper;
-mod store;
 mod connectors;
+mod loader;
+mod store;
 
 use bike_point::BikePoint;
+
+#[macro_use(bson, doc)]
+extern crate bson;
 
 #[macro_use]
 extern crate rocket;
@@ -19,17 +21,20 @@ fn index() -> &'static str {
 }
 
 #[get("/bikes", format = "json")]
-fn get_bike_points(_connection: redis_wrapper::DbConn) -> Json<Vec<BikePoint>> {
-    let bike_points = store::Store::get_bike_points(_connection);
+fn get_bike_points(_connection: MyDatabase) -> Json<Vec<BikePoint>> {
+    let bike_points = store::get_bike_points(&*_connection);
     Json(bike_points)
 }
+
+#[rocket_contrib::database("city-cycling")]
+struct MyDatabase(mongodb::db::Database);
 
 fn main() {
     thread::spawn(|| {
         loader::bike_loader();
     });
     rocket::ignite()
-        .manage(store::pool())
+        .attach(MyDatabase::fairing())
         .mount("/", routes![index])
         .mount("/api", routes![get_bike_points])
         .launch();
